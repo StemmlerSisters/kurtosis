@@ -8,11 +8,13 @@ const (
 	exec   TaskType = "exec"
 )
 
-type privatePlanYaml struct {
-	PackageId      string           `yaml:"packageId,omitempty"`
-	Services       []*Service       `yaml:"services,omitempty"`
-	FilesArtifacts []*FilesArtifact `yaml:"filesArtifacts,omitempty"`
-	Tasks          []*Task          `yaml:"tasks,omitempty"`
+type PlanYaml struct {
+	PackageId           string           `yaml:"packageId,omitempty"`
+	Services            []*Service       `yaml:"services,omitempty"`
+	FilesArtifacts      []*FilesArtifact `yaml:"filesArtifacts,omitempty"`
+	Tasks               []*Task          `yaml:"tasks,omitempty"`
+	Images              []string         `yaml:"images,omitempty"`
+	PackageDependencies []string         `yaml:"packageDependencies,omitempty"`
 }
 
 // Service represents a service in the system.
@@ -88,16 +90,16 @@ type FileMount struct {
 
 // Task represents a task to be executed.
 type Task struct {
-	Uuid     string           `yaml:"uuid,omitempty"`     // done
-	Name     string           `yaml:"name,omitempty"`     // done
-	TaskType TaskType         `yaml:"taskType,omitempty"` // done
-	RunCmd   []string         `yaml:"command,omitempty"`  // done
-	Image    string           `yaml:"image,omitempty"`    // done
+	Uuid     string           `yaml:"uuid,omitempty"`
+	Name     string           `yaml:"name,omitempty"`
+	TaskType TaskType         `yaml:"taskType,omitempty"`
+	RunCmd   []string         `yaml:"command,omitempty"`
+	Image    string           `yaml:"image,omitempty"`
 	Files    []*FileMount     `yaml:"files,omitempty"`
 	Store    []*FilesArtifact `yaml:"store,omitempty"`
 
 	// only exists on shell tasks
-	EnvVars []*EnvironmentVariable `yaml:"envVar,omitempty"` // done
+	EnvVars []*EnvironmentVariable `yaml:"envVar,omitempty"`
 
 	// only exists on python tasks
 	PythonPackages []string `yaml:"pythonPackages,omitempty"`
@@ -110,3 +112,16 @@ type Task struct {
 
 // TaskType represents the type of task (either python or shell)
 type TaskType string
+
+type Package struct {
+	PackageId       string
+	ContainerImages []string
+}
+
+type PackageDependencyGraph struct {
+	RootPackageId string
+
+	PackageIndex map[string]Package
+
+	PackageGraph map[string][]Package
+}

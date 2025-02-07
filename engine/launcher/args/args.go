@@ -61,11 +61,20 @@ type EngineServerArgs struct {
 
 	// List of allowed origins to validate CORS requests on the REST API. If undefined, defaults to '*' (any origin).
 	AllowedCORSOrigins *[]string `json:"allowed_cors_origins,omitempty"`
+
+	// To restart the current API containers after the engine has been restarted
+	RestartAPIContainers bool `json:"restart_api_containers"`
+
+	// Enclave manager UI domain name
+	Domain string `json:"domain"`
+
+	LogRetentionPeriod string `json:"logRetentionPeriod"`
 }
 
 var skipValidation = map[string]bool{
 	"cloud_instance_id": true,
 	"cloud_user_id":     true,
+	"domain":            true,
 }
 
 func (args *EngineServerArgs) UnmarshalJSON(data []byte) error {
@@ -116,6 +125,9 @@ func NewEngineServerArgs(
 	cloudUserID metrics_client.CloudUserID,
 	cloudInstanceID metrics_client.CloudInstanceID,
 	allowedCORSOrigins *[]string,
+	restartAPIContainers bool,
+	domain string,
+	logRetentionPeriod string,
 ) (*EngineServerArgs, error) {
 	if enclaveEnvVars == "" {
 		enclaveEnvVars = emptyJsonField
@@ -135,6 +147,9 @@ func NewEngineServerArgs(
 		CloudUserID:                 cloudUserID,
 		CloudInstanceID:             cloudInstanceID,
 		AllowedCORSOrigins:          allowedCORSOrigins,
+		RestartAPIContainers:        restartAPIContainers,
+		Domain:                      domain,
+		LogRetentionPeriod:          logRetentionPeriod,
 	}
 	if err := result.validate(); err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred validating engine server args")

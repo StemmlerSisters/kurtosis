@@ -20,7 +20,7 @@ service KurtosisCloudBackendServer {
   rpc CancelPaymentSubscription (CancelPaymentSubscriptionArgs) returns (google.protobuf.Empty) {};
   rpc UpdateAddress(UpdateAddressArgs) returns (google.protobuf.Empty) {};
   rpc GetInstances(google.protobuf.Empty) returns (GetInstancesResponse) {};
-  rpc DeleteInstance(DeleteInstanceRequest) returns (DeleteInstanceResponse) {};
+  rpc DeleteInstances(DeleteInstancesRequest) returns (DeleteInstancesResponse) {};
   rpc ChangeActiveStatus(ChangeUserActiveRequest) returns (google.protobuf.Empty) {};
   rpc GetUser(GetUserRequest) returns (GetUserResponse) {};
   rpc CheckPortAuthorization(CheckPortAuthorizationRequest) returns(google.protobuf.Empty){
@@ -31,6 +31,10 @@ service KurtosisCloudBackendServer {
   rpc GetUnlockedPorts(GetUnlockedPortsRequest) returns(GetUnlockedPortsResponse){};
   rpc GetPorts(GetPortsRequest) returns(GetPortsResponse){};
   rpc AddAlias(AddAliasRequest) returns(google.protobuf.Empty){};
+  rpc DeleteAlias(DeleteAliasRequest) returns (google.protobuf.Empty){};
+  rpc IsNewKurtosisVersionAvailable(IsNewKurtosisVersionAvailableRequest) returns(IsNewKurtosisVersionAvailableResponse){};
+  rpc UpgradeKurtosisVersion(UpgradeKurtosisVersionRequest) returns(google.protobuf.Empty){};
+  rpc GetInstanceMetrics(GetInstanceMetricsRequest) returns(GetInstanceMetricsResponse){};
 }
 
 message GetOrCreateApiKeyRequest {
@@ -153,13 +157,18 @@ message UpdateAddressArgs {
   string country = 8;
 }
 
-message DeleteInstanceRequest {
-  string instance_id = 1;
-  string ec2_id = 2;
+message DeleteInstancesRequest {
+  repeated string instance_ids = 1;
+
+  // must be system user to delete instances
+  string api_key = 2;
+
+  // can optionally pass a status to only delete instances with a certain status, eg. configuring
+  optional string status = 3;
 }
 
-message DeleteInstanceResponse {
-  string status = 1;
+message DeleteInstancesResponse {
+  repeated string deleted_instances = 1;
 }
 
 message GetInstancesResponse {
@@ -282,3 +291,41 @@ message  AddAliasRequest {
   Port port=2;
   string alias=3;
 }
+
+message DeleteAliasRequest {
+  string access_token=1;
+  string alias=2;
+}
+
+message IsNewKurtosisVersionAvailableRequest {
+  string access_token = 1;
+  string current_kurtosis_version = 2;
+}
+
+message IsNewKurtosisVersionAvailableResponse {
+  bool isAvailable = 1;
+  string latestVersion = 2;
+}
+
+message UpgradeKurtosisVersionRequest {
+  string access_token = 1;
+}
+
+message GetInstanceMetricsRequest {
+  string access_token = 1;
+  string instance_id = 2;
+  int32 interval = 3;
+  int32 utc_offset = 4;
+
+  enum Theme {
+    LIGHT = 0;
+    DARK = 1;
+  }
+
+  Theme theme = 5;
+}
+
+message GetInstanceMetricsResponse {
+  string metrics = 1;
+}
+

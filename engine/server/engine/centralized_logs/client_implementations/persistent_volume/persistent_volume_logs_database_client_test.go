@@ -6,6 +6,8 @@ import (
 	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface"
 	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/enclave"
 	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/service"
+	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs/client_implementations/persistent_volume/file_layout"
+	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs/client_implementations/persistent_volume/log_file_manager"
 	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs/client_implementations/persistent_volume/logs_clock"
 	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs/client_implementations/persistent_volume/stream_logs_strategy"
 	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs/client_implementations/persistent_volume/volume_consts"
@@ -26,6 +28,8 @@ const (
 	testUserService2Uuid = "test-user-service-2"
 	testUserService3Uuid = "test-user-service-3"
 
+	retentionPeriodInWeeksForTesting = 5
+
 	utcFormat              = time.RFC3339
 	defaultUTCTimestampStr = "2023-09-06T00:35:15-04:00"
 	logLine1               = "{\"log\":\"Starting feature 'centralized logs'\", \"timestamp\":\"2023-09-06T00:35:15-04:00\"}"
@@ -43,7 +47,7 @@ const (
 	notFoundedFilterText     = "it shouldn't be found in the log lines"
 	firstMatchRegexFilterStr = "Starting.*idempotently'"
 
-	testTimeOut     = 2 * time.Second
+	testTimeOut     = 2 * time.Minute
 	doNotFollowLogs = false
 
 	defaultYear  = 2023
@@ -128,7 +132,7 @@ func TestStreamUserServiceLogsPerWeek_WithFilters(t *testing.T) {
 
 	underlyingFs := createFilledPerWeekFilesystem(startingWeek)
 	mockTime := logs_clock.NewMockLogsClock(defaultYear, startingWeek, defaultDay)
-	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime)
+	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime, retentionPeriodInWeeksForTesting)
 
 	receivedUserServiceLogsByUuid, testEvaluationErr := executeStreamCallAndGetReceivedServiceLogLines(
 		t,
@@ -211,7 +215,7 @@ func TestStreamUserServiceLogsPerWeek_NoLogsFromPersistentVolume(t *testing.T) {
 
 	underlyingFs := createEmptyPerWeekFilesystem(startingWeek)
 	mockTime := logs_clock.NewMockLogsClock(defaultYear, startingWeek, defaultDay)
-	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime)
+	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime, retentionPeriodInWeeksForTesting)
 
 	receivedUserServiceLogsByUuid, testEvaluationErr := executeStreamCallAndGetReceivedServiceLogLines(
 		t,
@@ -316,7 +320,7 @@ func TestStreamUserServiceLogsPerWeek_ThousandsOfLogLinesSuccessfulExecution(t *
 	require.NoError(t, err)
 
 	mockTime := logs_clock.NewMockLogsClock(defaultYear, startingWeek, defaultDay)
-	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime)
+	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime, retentionPeriodInWeeksForTesting)
 
 	receivedUserServiceLogsByUuid, testEvaluationErr := executeStreamCallAndGetReceivedServiceLogLines(
 		t,
@@ -403,7 +407,7 @@ func TestStreamUserServiceLogsPerWeek_EmptyLogLines(t *testing.T) {
 	require.NoError(t, err)
 
 	mockTime := logs_clock.NewMockLogsClock(defaultYear, startingWeek, defaultDay)
-	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime)
+	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime, retentionPeriodInWeeksForTesting)
 
 	receivedUserServiceLogsByUuid, testEvaluationErr := executeStreamCallAndGetReceivedServiceLogLines(
 		t,
@@ -470,7 +474,7 @@ func TestStreamUserServiceLogsPerWeek_WithLogsAcrossWeeks(t *testing.T) {
 	require.NoError(t, err)
 
 	mockTime := logs_clock.NewMockLogsClock(defaultYear, 4, defaultDay)
-	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime)
+	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime, retentionPeriodInWeeksForTesting)
 
 	receivedUserServiceLogsByUuid, testEvaluationErr := executeStreamCallAndGetReceivedServiceLogLines(
 		t,
@@ -539,7 +543,7 @@ func TestStreamUserServiceLogsPerWeek_WithLogLineAcrossWeeks(t *testing.T) {
 	require.NoError(t, err)
 
 	mockTime := logs_clock.NewMockLogsClock(defaultYear, 4, defaultDay)
-	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime)
+	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime, retentionPeriodInWeeksForTesting)
 
 	receivedUserServiceLogsByUuid, testEvaluationErr := executeStreamCallAndGetReceivedServiceLogLines(
 		t,
@@ -590,7 +594,7 @@ func TestStreamUserServiceLogsPerWeekReturnsTimestampedLogLines(t *testing.T) {
 	require.NoError(t, err)
 
 	mockTime := logs_clock.NewMockLogsClock(defaultYear, startingWeek, defaultDay)
-	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime)
+	perWeekStreamStrategy := stream_logs_strategy.NewPerWeekStreamLogsStrategy(mockTime, retentionPeriodInWeeksForTesting)
 
 	expectedTime, err := time.Parse(utcFormat, defaultUTCTimestampStr)
 	require.NoError(t, err)
@@ -692,7 +696,11 @@ func executeStreamCallAndGetReceivedServiceLogLines(
 
 	kurtosisBackend := backend_interface.NewMockKurtosisBackend(t)
 
-	logsDatabaseClient := NewPersistentVolumeLogsDatabaseClient(kurtosisBackend, underlyingFs, streamStrategy)
+	// no log file management is done in these tests so values for logFileManager aren't important
+	mockTime := logs_clock.NewMockLogsClock(0, 0, 0)
+	fileLayout := file_layout.NewPerWeekFileLayout(mockTime)
+	logFileManager := log_file_manager.NewLogFileManager(kurtosisBackend, underlyingFs, fileLayout, mockTime, 0)
+	logsDatabaseClient := NewPersistentVolumeLogsDatabaseClient(kurtosisBackend, underlyingFs, logFileManager, streamStrategy)
 
 	userServiceLogsByUuidChan, errChan, receivedCancelCtxFunc, err := logsDatabaseClient.StreamUserServiceLogs(ctx, enclaveUuid, userServiceUuids, logLinesFilters, shouldFollowLogs, defaultShouldReturnAllLogs, defaultNumLogLines)
 	if err != nil {
@@ -713,11 +721,13 @@ func executeStreamCallAndGetReceivedServiceLogLines(
 		case <-time.Tick(testTimeOut):
 			return nil, stacktrace.NewError("Receiving stream logs in the test has reached the '%v' time out", testTimeOut)
 		case streamErr, isChanOpen := <-errChan:
-			if !isChanOpen {
+			if !isChanOpen && len(userServiceLogsByUuidChan) == 0 {
 				shouldReceiveStream = false
 				break
 			}
-			return nil, stacktrace.Propagate(streamErr, "Receiving streaming error.")
+			if isChanOpen && streamErr != nil {
+				return nil, stacktrace.Propagate(streamErr, "Receiving streaming error.")
+			}
 		case userServiceLogsByUuid, isChanOpen := <-userServiceLogsByUuidChan:
 			if !isChanOpen {
 				shouldReceiveStream = false

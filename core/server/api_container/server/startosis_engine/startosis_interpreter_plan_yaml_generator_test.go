@@ -24,7 +24,7 @@ const (
 	mockApicVersion = "1234"
 )
 
-type StartosisIntepreterPlanYamlTestSuite struct {
+type StartosisIntepreterPlanYamlGeneratorTestSuite struct {
 	suite.Suite
 	serviceNetwork               *service_network.MockServiceNetwork
 	packageContentProvider       *mock_package_content_provider.MockPackageContentProvider
@@ -34,7 +34,7 @@ type StartosisIntepreterPlanYamlTestSuite struct {
 	interpreter *StartosisInterpreter
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) SetupTest() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) SetupTest() {
 	// mock package content provider
 	suite.packageContentProvider = mock_package_content_provider.NewMockPackageContentProvider()
 	enclaveDb := getEnclaveDBForTest(suite.T())
@@ -72,15 +72,15 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) SetupTest() {
 	suite.interpreter = NewStartosisInterpreter(suite.serviceNetwork, suite.packageContentProvider, suite.runtimeValueStore, nil, "", suite.interpretationTimeValueStore)
 }
 
-func TestRunStartosisIntepreterPlanYamlTestSuite(t *testing.T) {
-	suite.Run(t, new(StartosisIntepreterPlanYamlTestSuite))
+func TestRunStartosisIntepreterPlanYamlGeneratorTestSuite(t *testing.T) {
+	suite.Run(t, new(StartosisIntepreterPlanYamlGeneratorTestSuite))
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TearDownTest() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TearDownTest() {
 	suite.packageContentProvider.RemoveAll()
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestAddServiceWithFilesArtifact() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestAddServiceWithFilesArtifact() {
 	script := `def run(plan, hi_files_artifact):
 	service_name = "serviceA"
 	config = ServiceConfig(
@@ -147,11 +147,13 @@ services:
 filesArtifacts:
 - uuid: "2"
   name: hi-file
+images:
+- kurtosistech/example-datastore-server
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestRunShWithFilesArtifacts() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestRunShWithFilesArtifacts() {
 	script := `def run(plan, hi_files_artifact):
     plan.run_sh(
         run="echo bye > /bye.txt",
@@ -163,7 +165,8 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) TestRunShWithFilesArtifacts()
         },
         store=[
             StoreSpec(src="/bye.txt", name="bye-file")
-        ]
+        ],
+		description = "Store bye",
     )
 `
 	inputArgs := `{"hi_files_artifact": "hi-file"}`
@@ -195,6 +198,7 @@ filesArtifacts:
   - /bye.txt
 tasks:
 - uuid: "1"
+  name: Store bye
   taskType: sh
   command:
   - echo bye > /bye.txt
@@ -210,11 +214,13 @@ tasks:
   envVar:
   - key: HELLO
     value: Hello!
+images:
+- badouralix/curl-jq
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestRunPython() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestRunPython() {
 	script := `def run(plan, hi_files_artifact):
      plan.run_python(
         run = """
@@ -235,6 +241,7 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) TestRunPython() {
         store = [
             StoreSpec(src = "bye.txt", name = "bye-file"),
         ],
+		description = "Request docs"
 )
 `
 	inputArgs := `{"hi_files_artifact": "hi-file"}`
@@ -266,6 +273,7 @@ filesArtifacts:
   - bye.txt
 tasks:
 - uuid: "1"
+  name: Request docs
   taskType: python
   command:
   - "\n    import requests\n    response = requests.get(\"docs.kurtosis.com\")\n    print(response.status_code)
@@ -284,11 +292,13 @@ tasks:
   - requests
   pythonArgs:
   - something
+images:
+- python:3.11-alpine
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestExec() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestExec() {
 	script := `def run(plan, hi_files_artifact):
 	plan.add_service(
 		name="db",
@@ -301,12 +311,13 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) TestExec() {
 			files = {
 				"/root": hi_files_artifact,
 			}
-		)
+		),
 	)
 	result = plan.exec(
 		service_name="db",
 		recipe=ExecRecipe(command=["echo", "Hello, world"]),
 		acceptable_codes=[0],
+		description = "Say Hello"
 	)
 `
 	inputArgs := `{"hi_files_artifact": "hi-file"}`
@@ -349,6 +360,7 @@ filesArtifacts:
   name: hi-file
 tasks:
 - uuid: "3"
+  name: Say Hello
   taskType: exec
   command:
   - echo
@@ -356,11 +368,13 @@ tasks:
   serviceName: db
   acceptableCodes:
   - 0
+images:
+- postgres:latest
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestRenderTemplate() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestRenderTemplate() {
 	script := `def run(plan, args):
     bye_files_artifact = plan.render_templates(
         name="bye-file",
@@ -381,6 +395,7 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) TestRenderTemplate() {
         files = {
             "/root": bye_files_artifact,
         },
+		description = "Say bye",
     )
 `
 	inputArgs := `{"hi_files_artifact": "hi-file"}`
@@ -411,6 +426,7 @@ filesArtifacts:
   - fairwell.txt
 tasks:
 - uuid: "2"
+  name: Say bye
   taskType: sh
   command:
   - cat /root/bye.txt
@@ -420,11 +436,13 @@ tasks:
     filesArtifacts:
     - uuid: "1"
       name: bye-file
+images:
+- badouralix/curl-jq
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestAddServiceWithImageBuildSpec() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestAddServiceWithImageBuildSpec() {
 	dockerfileModulePath := "github.com/kurtosis-tech/plan-yaml-prac/server/Dockerfile"
 	serverModulePath := "github.com/kurtosis-tech/plan-yaml-prac/server"
 	dockerfileContents := `RUN ["something"]`
@@ -482,11 +500,13 @@ services:
 filesArtifacts:
 - uuid: "2"
   name: hi-file
+images:
+- kurtosistech/example-datastore-server
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestAddServiceWithImageSpec() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestAddServiceWithImageSpec() {
 	dockerfileModulePath := "github.com/kurtosis-tech/plan-yaml-prac/server/Dockerfile"
 	serverModulePath := "github.com/kurtosis-tech/plan-yaml-prac/server"
 	dockerfileContents := `RUN ["something"]`
@@ -542,11 +562,13 @@ services:
 filesArtifacts:
 - uuid: "2"
   name: hi-file
+images:
+- kurtosistech/example-datastore-server
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestUploadFiles() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestUploadFiles() {
 	dockerfileModulePath := "github.com/kurtosis-tech/plan-yaml-prac/server/Dockerfile"
 	serverModulePath := "github.com/kurtosis-tech/plan-yaml-prac/server"
 	dockerfileContents := `RUN ["something"]`
@@ -563,6 +585,7 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) TestUploadFiles() {
         files = {
             "/root": dockerfile_artifact,
         },
+		description = "Say dockerfile contents"
     )
 `
 	_, instructionsPlan, interpretationError := suite.interpreter.Interpret(
@@ -591,6 +614,7 @@ filesArtifacts:
   - ./server/Dockerfile
 tasks:
 - uuid: "2"
+  name: Say dockerfile contents
   taskType: sh
   command:
   - cat /root/Dockerfile
@@ -600,11 +624,13 @@ tasks:
     filesArtifacts:
     - uuid: "1"
       name: dockerfile
+images:
+- badouralix/curl-jq
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestStoreServiceFiles() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestStoreServiceFiles() {
 	script := `def run(plan, hi_files_artifact):
     plan.add_service(
         name="db",
@@ -663,11 +689,13 @@ filesArtifacts:
   name: bye-file
   files:
   - bye.txt
+images:
+- postgres:latest
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestRemoveService() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestRemoveService() {
 	script := `def run(plan, hi_files_artifact):
 	plan.add_service(
 		name="db",
@@ -707,11 +735,13 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) TestRemoveService() {
 filesArtifacts:
 - uuid: "2"
   name: hi-file
+images:
+- postgres:latest
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }
 
-func (suite *StartosisIntepreterPlanYamlTestSuite) TestFutureReferencesAreSwapped() {
+func (suite *StartosisIntepreterPlanYamlGeneratorTestSuite) TestFutureReferencesAreSwapped() {
 	script := `def run(plan, hi_files_artifact):
 	service = plan.add_service(
 		name="db",
@@ -732,12 +762,15 @@ func (suite *StartosisIntepreterPlanYamlTestSuite) TestFutureReferencesAreSwappe
 			command=["echo", service.ip_address + " " + service.hostname]
 		),
 		acceptable_codes=[0],
+		description = "Get db ip"
 	)	
 	runShResult = plan.run_sh(
 		run="echo " + execResult["code"] + " " + execResult["output"],
+        description = "Say db ip"
 	)
 	plan.run_sh(
 		run="echo " + runShResult.code + " " + runShResult.output,
+ 		description = "Say db ip again"
 	)
 `
 	inputArgs := `{"hi_files_artifact": "hi-file"}`
@@ -780,6 +813,7 @@ filesArtifacts:
   name: hi-file
 tasks:
 - uuid: "3"
+  name: Get db ip
   taskType: exec
   command:
   - echo
@@ -788,15 +822,20 @@ tasks:
   acceptableCodes:
   - 0
 - uuid: "4"
+  name: Say db ip
   taskType: sh
   command:
   - echo {{ kurtosis.3.code }} {{ kurtosis.3.output }}
   image: badouralix/curl-jq
 - uuid: "5"
+  name: Say db ip again
   taskType: sh
   command:
   - echo {{ kurtosis.4.code }} {{ kurtosis.4.output }}
   image: badouralix/curl-jq
+images:
+- badouralix/curl-jq
+- postgres:latest
 `
 	require.Equal(suite.T(), expectedYaml, planYaml)
 }

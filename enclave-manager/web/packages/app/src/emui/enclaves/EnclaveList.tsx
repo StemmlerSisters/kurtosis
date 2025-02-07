@@ -1,6 +1,8 @@
 import { Button, ButtonGroup, Flex } from "@chakra-ui/react";
 import { AppPageLayout, KurtosisAlert, PageTitle } from "kurtosis-ui-components";
 import { useEffect, useMemo, useState } from "react";
+import { BrowserRecommendator } from "./components/BrowserRecommendator";
+import { KurtosisUpgrader } from "./components/KurtosisUpgrader";
 import { EnclavesTable } from "./components/tables/EnclavesTable";
 import { CreateEnclaveButton } from "./components/widgets/CreateEnclaveButton";
 import { DeleteEnclavesButton } from "./components/widgets/DeleteEnclavesButton";
@@ -43,7 +45,9 @@ export const EnclaveList = () => {
           <CreateEnclaveButton />
         </Flex>
       </Flex>
-      <Flex direction="column" pt={"24px"} width={"100%"} flex={"1"}>
+      <Flex direction="column" pt={"24px"} width={"100%"} gap={8}>
+        <KurtosisUpgrader />
+        <BrowserRecommendator />
         {enclaves.isOk && (
           <EnclavesTable
             enclavesData={enclaves.value}

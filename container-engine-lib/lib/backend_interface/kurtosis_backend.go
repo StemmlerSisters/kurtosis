@@ -169,7 +169,7 @@ type KurtosisBackend interface {
 		resultErr error,
 	)
 
-	// Stops API containers matching the given filters
+	// Destroy API containers matching the given filters
 	DestroyAPIContainers(
 		ctx context.Context,
 		filters *api_container.APIContainerFilters,
@@ -280,9 +280,10 @@ type KurtosisBackend interface {
 	RunUserServiceExecCommands(
 		ctx context.Context,
 		enclaveUuid enclave.EnclaveUUID,
+		containerUser string,
 		userServiceCommands map[service.ServiceUUID][]string,
 	) (
-		succesfulUserServiceExecResults map[service.ServiceUUID]*exec_result.ExecResult,
+		successfulUserServiceExecResults map[service.ServiceUUID]*exec_result.ExecResult,
 		erroredUserServiceUuids map[service.ServiceUUID]error,
 		resultErr error,
 	)

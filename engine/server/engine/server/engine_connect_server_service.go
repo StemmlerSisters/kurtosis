@@ -10,7 +10,6 @@ import (
 	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/enclave"
 	user_service "github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/service"
 	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs"
-	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs/client_implementations/persistent_volume/log_file_manager"
 	"github.com/kurtosis-tech/kurtosis/engine/server/engine/centralized_logs/logline"
 	"github.com/kurtosis-tech/kurtosis/engine/server/engine/enclave_manager"
 	"github.com/kurtosis-tech/kurtosis/engine/server/engine/types"
@@ -41,8 +40,6 @@ type EngineConnectServerService struct {
 	// The client for consuming container logs from the logs database
 	logsDatabaseClient centralized_logs.LogsDatabaseClient
 
-	logFileManager *log_file_manager.LogFileManager
-
 	metricsClient metrics_client.MetricsClient
 }
 
@@ -52,7 +49,6 @@ func NewEngineConnectServerService(
 	metricsUserId string,
 	didUserAcceptSendingMetrics bool,
 	logsDatabaseClient centralized_logs.LogsDatabaseClient,
-	logFileManager *log_file_manager.LogFileManager,
 	metricsClient metrics_client.MetricsClient,
 ) *EngineConnectServerService {
 	service := &EngineConnectServerService{
@@ -61,7 +57,6 @@ func NewEngineConnectServerService(
 		metricsUserID:               metricsUserId,
 		didUserAcceptSendingMetrics: didUserAcceptSendingMetrics,
 		logsDatabaseClient:          logsDatabaseClient,
-		logFileManager:              logFileManager,
 		metricsClient:               metricsClient,
 	}
 	return service
@@ -265,7 +260,7 @@ func (service *EngineConnectServerService) Clean(ctx context.Context, connectArg
 		return nil, stacktrace.Propagate(err, "An error occurred while cleaning enclaves")
 	}
 	if args.GetShouldCleanAll() {
-		if err = service.logFileManager.RemoveAllLogs(); err != nil {
+		if err = service.logsDatabaseClient.RemoveAllLogs(); err != nil {
 			return nil, stacktrace.Propagate(err, "An error occurred removing all logs.")
 		}
 	}
@@ -280,7 +275,6 @@ func (service *EngineConnectServerService) Clean(ctx context.Context, connectArg
 }
 
 func (service *EngineConnectServerService) GetServiceLogs(ctx context.Context, connectArgs *connect.Request[kurtosis_engine_rpc_api_bindings.GetServiceLogsArgs], stream *connect.ServerStream[kurtosis_engine_rpc_api_bindings.GetServiceLogsResponse]) error {
-
 	args := connectArgs.Msg
 	enclaveIdentifier := args.GetEnclaveIdentifier()
 	enclaveUuid, err := service.enclaveManager.GetEnclaveUuidForEnclaveIdentifier(context.Background(), enclaveIdentifier)
@@ -372,8 +366,10 @@ func (service *EngineConnectServerService) GetServiceLogs(ctx context.Context, c
 				logrus.Debug("Exiting the stream because an error from the logs database client was received through the error chan.")
 				return stacktrace.Propagate(err, "An error occurred streaming user service logs.")
 			}
-			logrus.Debug("Exiting the stream loop after receiving a close signal from the error chan")
-			return nil
+			if len(serviceLogsByServiceUuidChan) == 0 {
+				logrus.Debug("Exiting the stream loop after receiving a close signal from the error chan")
+				return nil
+			}
 		}
 	}
 }

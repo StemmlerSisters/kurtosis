@@ -990,13 +990,13 @@ func (manager *DockerManager) GetContainerLogs(
 }
 
 /*
-RunExecCommand
+RunUserServiceExecCommands
 Executes the given command inside the container with the given ID, blocking until the command completes
 */
-func (manager *DockerManager) RunExecCommand(context context.Context, containerId string, command []string, logOutput io.Writer) (int32, error) {
+func (manager *DockerManager) RunUserServiceExecCommands(context context.Context, containerId, userId string, command []string, logOutput io.Writer) (int32, error) {
 	dockerClient := manager.dockerClient
 	execConfig := types.ExecConfig{
-		User:         "",
+		User:         userId,
 		Privileged:   false,
 		Tty:          false,
 		ConsoleSize:  nil,
@@ -1539,7 +1539,21 @@ func (manager *DockerManager) CreateContainerExec(context context.Context, conta
 // The caller must close the result
 func (manager *DockerManager) CopyFromContainer(ctx context.Context, containerId string, srcPath string) (io.ReadCloser, error) {
 
-	tarStreamReadCloser, _, err := manager.dockerClient.CopyFromContainer(
+	stat, err := manager.dockerClient.ContainerStatPath(ctx, containerId, srcPath)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred while verifying whether the file was a folder")
+	}
+
+	// if it's a directory we copy contents of the directory
+	if stat.Mode.IsDir() && !strings.HasSuffix(srcPath, "/.") {
+		if strings.HasSuffix(srcPath, "/") {
+			srcPath = srcPath + "."
+		} else {
+			srcPath = srcPath + "/."
+		}
+	}
+
+	tarStreamReadCloser, _, err := manager.dockerClientNoTimeout.CopyFromContainer(
 		ctx,
 		containerId,
 		srcPath)
@@ -2265,6 +2279,25 @@ func pullImage(dockerClient *client.Client, imageName string, registrySpec *imag
 		PrivilegeFunc: nil,
 		Platform:      platform,
 	}
+
+	// Try to obtain the auth configuration from the docker config file
+	authConfig, err := GetAuthFromDockerConfig(imageName)
+	if err != nil {
+		logrus.Warnf("An error occurred while getting auth config for image: %s: %s", imageName, err.Error())
+		logrus.Warnf("Falling back to pulling image with no auth config.")
+	}
+
+	if authConfig != nil {
+		authFromConfig, err := registry.EncodeAuthConfig(*authConfig)
+		if err != nil {
+			logrus.Warnf("An error occurred while encoding auth config for image: %s: %s", imageName, err.Error())
+			logrus.Warnf("Falling back to pulling image with no auth config.")
+		} else {
+			imagePullOptions.RegistryAuth = authFromConfig
+		}
+	}
+
+	// If the registry spec is defined, use that for authentication
 	if registrySpec != nil {
 		authConfig := registry.AuthConfig{
 			Username:      registrySpec.GetUsername(),
@@ -2282,6 +2315,7 @@ func pullImage(dockerClient *client.Client, imageName string, registrySpec *imag
 		imagePullOptions.RegistryAuth = encodedAuthConfig
 
 	}
+
 	out, err := dockerClient.ImagePull(pullImageCtx, imageName, imagePullOptions)
 	if err != nil {
 		return stacktrace.Propagate(err, "Tried pulling image '%v' with platform '%v' but failed", imageName, platform), false

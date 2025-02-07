@@ -17,8 +17,8 @@ const (
 
 	EndOfJsonLine = "}"
 
-	// promise to keep 4 weeks of logs for users, but store an additional week for safety
-	LogRetentionPeriodInWeeks = 5
+	// promise to keep 1 weeks of logs for users
+	LogRetentionPeriodInWeeks = 1
 
 	RemoveLogsWaitHours = 6 * time.Hour
 
@@ -27,6 +27,7 @@ const (
 	// basepath/enclave uuid/service uuid <filetype>
 	PerFileFmtStr = "%s%s/%s%s"
 
+	// TODO: remove these from consts once PerWeekFileLayout is fully merged
 	// basepath /year/week
 	PerWeekDirPathStr = "%s%s/%s/"
 

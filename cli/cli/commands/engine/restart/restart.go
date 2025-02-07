@@ -3,6 +3,10 @@ package restart
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/kurtosis-tech/kurtosis/cli/cli/command_framework/lowlevel"
 	"github.com/kurtosis-tech/kurtosis/cli/cli/command_framework/lowlevel/args"
 	"github.com/kurtosis-tech/kurtosis/cli/cli/command_framework/lowlevel/flags"
@@ -14,8 +18,6 @@ import (
 	"github.com/kurtosis-tech/kurtosis/kurtosis_version"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -23,9 +25,16 @@ const (
 	logLevelFlagKey                = "log-level"
 	enclavePoolSizeFlagKey         = "enclave-pool-size"
 	githubAuthTokenOverrideFlagKey = "github-auth-token"
+	logRetentionPeriodFlagKey      = "log-retention-period"
 
 	defaultEngineVersion                   = ""
 	restartEngineOnSameVersionIfAnyRunning = false
+
+	defaultShouldRestartAPIContainers = "false"
+	restartAPIContainersFlagKey       = "restart-api-containers"
+
+	domainFlagKey = "domain"
+	defaultDomain = ""
 )
 
 var RestartCmd = &lowlevel.LowlevelKurtosisCommand{
@@ -70,6 +79,27 @@ var RestartCmd = &lowlevel.LowlevelKurtosisCommand{
 			Shorthand: "",
 			Type:      flags.FlagType_String,
 			Default:   defaults.DefaultGitHubAuthTokenOverride,
+		},
+		{
+			Key:       restartAPIContainersFlagKey,
+			Usage:     "Also restart the current API containers after starting the Kurtosis engine.",
+			Shorthand: "",
+			Type:      flags.FlagType_Bool,
+			Default:   defaultShouldRestartAPIContainers,
+		},
+		{
+			Key:       domainFlagKey,
+			Usage:     "The domain name of the enclave manager UI if self-hosting (blank defaults to localhost for the local use case and cloud.kurtosis.com for the Kurtosis cloud use case)",
+			Shorthand: "",
+			Type:      flags.FlagType_String,
+			Default:   defaultDomain,
+		},
+		{
+			Key:       logRetentionPeriodFlagKey,
+			Usage:     "The length of time that Kurtosis should keep logs for. Eg. if set to 168h, Kurtosis will remove all logs beyond 1 week. You can specify hours using 'h' however Kurtosis currently only supports setting retention on a weekly basis.",
+			Shorthand: "",
+			Type:      flags.FlagType_String,
+			Default:   defaults.DefaultLogRetentionPeriod,
 		},
 	},
 	PreValidationAndRunFunc:  nil,
@@ -127,9 +157,28 @@ func run(_ context.Context, flags *flags.ParsedFlags, _ *args.ParsedArgs) error 
 		shouldStartInDebugMode = true
 	}
 
+	shouldRestartAPIContainers, err := flags.GetBool(restartAPIContainersFlagKey)
+	if err != nil {
+		return stacktrace.Propagate(err, "Expected a value for the '%v' flag but failed to get it", restartAPIContainersFlagKey)
+	}
+
+	domain, err := flags.GetString(domainFlagKey)
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred while getting the Kurtosis engine enclave manager UI domain name using the flag with key '%v'; this is a bug in Kurtosis", domainFlagKey)
+	}
+
+	logRetentionPeriodStr, err := flags.GetString(logRetentionPeriodFlagKey)
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred while getting the log retention period string from flag: '%v'", logRetentionPeriodStr)
+	}
+	_, err = time.ParseDuration(logRetentionPeriodStr)
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred parsing provided log retention period '%v' into a duration. Ensure the provided value has the proper format of hours using 'h'.", logRetentionPeriodStr)
+	}
+
 	var engineClientCloseFunc func() error
 	var restartEngineErr error
-	_, engineClientCloseFunc, restartEngineErr = engineManager.RestartEngineIdempotently(ctx, logLevel, engineVersion, restartEngineOnSameVersionIfAnyRunning, enclavePoolSize, shouldStartInDebugMode, githubAuthTokenOverride)
+	_, engineClientCloseFunc, restartEngineErr = engineManager.RestartEngineIdempotently(ctx, logLevel, engineVersion, restartEngineOnSameVersionIfAnyRunning, enclavePoolSize, shouldStartInDebugMode, githubAuthTokenOverride, shouldRestartAPIContainers, domain, logRetentionPeriodStr)
 	if restartEngineErr != nil {
 		return stacktrace.Propagate(restartEngineErr, "An error occurred restarting the Kurtosis engine")
 	}
