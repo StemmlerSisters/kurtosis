@@ -167,12 +167,19 @@ func (builtin *SetServiceCapabilities) Execute(_ context.Context, _ *builtin_arg
 	return fmt.Sprintf("Set service config on service '%v'.", builtin.serviceName), nil
 }
 
-func (builtin *SetServiceCapabilities) TryResolveWith(instructionsAreEqual bool, _ *enclave_plan_persistence.EnclavePlanInstruction, enclaveComponents *enclave_structure.EnclaveComponents) enclave_structure.InstructionResolutionStatus {
+func (builtin *SetServiceCapabilities) TryResolveWith(instructionsAreEqual bool, other *enclave_plan_persistence.EnclavePlanInstruction, enclaveComponents *enclave_structure.EnclaveComponents) enclave_structure.InstructionResolutionStatus {
 	if instructionsAreEqual && enclaveComponents.HasServiceBeenUpdated(builtin.serviceName) {
 		return enclave_structure.InstructionIsUpdate
 	} else if instructionsAreEqual {
 		return enclave_structure.InstructionIsEqual
 	}
+
+	// if service names are equal but the instructions are not equal, it means the service config has been updated.
+	// The instruction should be rerun
+	if !instructionsAreEqual {
+		return enclave_structure.InstructionIsUpdate
+	}
+
 	return enclave_structure.InstructionIsUnknown
 }
 
@@ -180,7 +187,7 @@ func (builtin *SetServiceCapabilities) FillPersistableAttributes(builder *enclav
 	builder.SetType(SetServiceBuiltinName).AddServiceName(builtin.serviceName)
 }
 
-func (builtin *SetServiceCapabilities) UpdatePlan(planYaml *plan_yaml.PlanYaml) error {
+func (builtin *SetServiceCapabilities) UpdatePlan(planYaml *plan_yaml.PlanYamlGenerator) error {
 	// update service does not affect the plan
 	return nil
 }

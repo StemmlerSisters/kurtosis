@@ -2,9 +2,11 @@ package docker_kurtosis_backend
 
 import (
 	"context"
-	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/image_registry_spec"
+	"encoding/json"
 	"net"
 	"time"
+
+	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/image_registry_spec"
 
 	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_impls/docker/object_attributes_provider/docker_label_key"
 
@@ -33,6 +35,9 @@ const (
 	timeBetweenWaitForApiContainerAvailabilityRetries = 1 * time.Second
 
 	apicDebugServerPort = 50103 // in ClI this is 50101 and in engine is 50102
+
+	isProductionEnclaveEnvVarKey    = "isProductionEnclave"
+	enableProductionModeEnvVarValue = "true"
 )
 
 // TODO: MIGRATE THIS FOLDER TO USE STRUCTURE OF USER_SERVICE_FUNCTIONS MODULE
@@ -75,6 +80,11 @@ func (backend *DockerKurtosisBackend) CreateAPIContainer(
 	githubAuthStorageVolumeName, err := backend.getGitHubAuthStorageVolume(ctx)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred getting the GitHub auth storage volume name.")
+	}
+
+	dockerConfigStorageVolumeName, err := backend.getDockerConfigStorageVolume(ctx)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "An error occurred getting the Docker config storage volume name.")
 	}
 
 	// Get the Docker network ID where we'll start the new API container
@@ -187,8 +197,9 @@ func (backend *DockerKurtosisBackend) CreateAPIContainer(
 	}
 
 	volumeMounts := map[string]string{
-		enclaveDataVolumeName:       enclaveDataVolumeDirpath,
-		githubAuthStorageVolumeName: consts.GitHubAuthStorageDirPath,
+		enclaveDataVolumeName:         enclaveDataVolumeDirpath,
+		githubAuthStorageVolumeName:   consts.GitHubAuthStorageDirPath,
+		dockerConfigStorageVolumeName: consts.DockerConfigStorageDirPath,
 	}
 
 	labelStrs := map[string]string{}
@@ -286,7 +297,8 @@ func (backend *DockerKurtosisBackend) CreateAPIContainer(
 		return nil, stacktrace.Propagate(err, "An error occurred while getting bridge network ip address for enclave with id: '%v'", enclaveUuid)
 	}
 
-	result, err := getApiContainerObjectFromContainerInfo(containerId, labelStrs, types.ContainerStatus_Running, hostMachinePortBindings, bridgeNetworkIpAddress)
+	isProductionEnclave := getProductionModeFromEnvVars(customEnvVars)
+	result, err := getApiContainerObjectFromContainerInfo(containerId, labelStrs, types.ContainerStatus_Running, hostMachinePortBindings, bridgeNetworkIpAddress, isProductionEnclave)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred creating an API container object from container with ID '%v'", containerId)
 	}
@@ -423,12 +435,17 @@ func (backend *DockerKurtosisBackend) getMatchingApiContainers(ctx context.Conte
 			return nil, stacktrace.Propagate(err, "An error occurred while getting bridge network ip address for container with id: '%v'", containerId)
 		}
 
+		isProductionEnclave, err := getProductionMode(apiContainer)
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "An error occurred getting production mode from the API container with container ID '%v'", containerId)
+		}
 		apicObj, err := getApiContainerObjectFromContainerInfo(
 			containerId,
 			apiContainer.GetLabels(),
 			apiContainer.GetStatus(),
 			apiContainer.GetHostPortBindings(),
 			bridgeNetworkIpAddress,
+			isProductionEnclave,
 		)
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "An error occurred converting container with ID '%v' into an API container object", apiContainer.GetId())
@@ -460,6 +477,7 @@ func getApiContainerObjectFromContainerInfo(
 	containerStatus types.ContainerStatus,
 	allHostMachinePortBindings map[nat.Port]*nat.PortBinding,
 	bridgeNetworkIpAddress string,
+	isProductionEnclave bool,
 ) (*api_container.APIContainer, error) {
 	enclaveId, found := labels[docker_label_key.EnclaveUUIDDockerLabelKey.GetString()]
 	if !found {
@@ -519,6 +537,7 @@ func getApiContainerObjectFromContainerInfo(
 		publicIpAddr,
 		publicGrpcPortSpec,
 		bridgeNetworkIpAddressAddr,
+		isProductionEnclave,
 	)
 
 	return result, nil
@@ -548,4 +567,46 @@ func getPrivateApiContainerPorts(containerLabels map[string]string) (
 
 func extractEnclaveIdApiContainer(apiContainer *api_container.APIContainer) string {
 	return string(apiContainer.GetEnclaveID())
+}
+
+func getProductionMode(apicDockerContainer *types.Container) (bool, error) {
+	var (
+		productionMode = false
+		err            error
+		envVars        = apicDockerContainer.GetEnvVars()
+	)
+
+	serializedArgsValue, found := envVars[serializedArgs]
+	if found {
+		productionMode, err = getProductionModeFromSerializedArgs(serializedArgsValue)
+		if err != nil {
+			return false, stacktrace.Propagate(err, "Error occurred while parsing env vars from api container with container ID %v", apicDockerContainer.GetId())
+		}
+	}
+	return productionMode, nil
+}
+
+func getProductionModeFromSerializedArgs(serializedParamsStr string) (bool, error) {
+	type Args struct {
+		IsProductionEnclave bool `json:"isProductionEnclave"`
+	}
+
+	var args Args
+	paramsJsonBytes := []byte(serializedParamsStr)
+	if err := json.Unmarshal(paramsJsonBytes, &args); err != nil {
+		return false, stacktrace.Propagate(err, "An error occurred deserializing the args JSON '%v'", serializedParamsStr)
+	}
+
+	return args.IsProductionEnclave, nil
+
+}
+
+func getProductionModeFromEnvVars(apiContainerEnvVars map[string]string) bool {
+	var productionMode bool
+	for envVarKey, envVarValue := range apiContainerEnvVars {
+		if envVarKey == isProductionEnclaveEnvVarKey && envVarValue == enableProductionModeEnvVarValue {
+			productionMode = true
+		}
+	}
+	return productionMode
 }

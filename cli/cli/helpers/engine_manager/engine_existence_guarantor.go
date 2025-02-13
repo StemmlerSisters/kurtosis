@@ -3,6 +3,7 @@ package engine_manager
 import (
 	"context"
 	"fmt"
+
 	"github.com/kurtosis-tech/kurtosis/cli/cli/helpers/github_auth_store"
 
 	"github.com/Masterminds/semver/v3"
@@ -81,6 +82,15 @@ type engineExistenceGuarantor struct {
 
 	// token with git auth to override existing GitHub auth if there is any
 	githubAuthTokenOverride string
+
+	// To restart the current API containers after the engine has been restarted
+	restartAPIContainers bool
+
+	// Enclave manager UI domain name
+	domain string
+
+	// Length of time Kurtosis will keep logs for
+	logRetentionPeriod string
 }
 
 func newEngineExistenceGuarantorWithDefaultVersion(
@@ -98,7 +108,9 @@ func newEngineExistenceGuarantorWithDefaultVersion(
 	allowedCORSOrigins *[]string,
 	shouldRunInDebugMode bool,
 	githubAuthTokenOverride string,
-
+	restartAPIContainers bool,
+	domain string,
+	logRetentionPeriod string,
 ) *engineExistenceGuarantor {
 	return newEngineExistenceGuarantorWithCustomVersion(
 		ctx,
@@ -116,6 +128,9 @@ func newEngineExistenceGuarantorWithDefaultVersion(
 		allowedCORSOrigins,
 		shouldRunInDebugMode,
 		githubAuthTokenOverride,
+		restartAPIContainers,
+		domain,
+		logRetentionPeriod,
 	)
 }
 
@@ -135,6 +150,9 @@ func newEngineExistenceGuarantorWithCustomVersion(
 	allowedCORSOrigins *[]string,
 	shouldRunInDebugMode bool,
 	githubAuthTokenOverride string,
+	restartAPIContainers bool,
+	domain string,
+	logRetentionPeriod string,
 ) *engineExistenceGuarantor {
 	return &engineExistenceGuarantor{
 		ctx:                                  ctx,
@@ -154,6 +172,9 @@ func newEngineExistenceGuarantorWithCustomVersion(
 		allowedCORSOrigins:                        allowedCORSOrigins,
 		shouldRunInDebugMode:                      shouldRunInDebugMode,
 		githubAuthTokenOverride:                   githubAuthTokenOverride,
+		restartAPIContainers:                      restartAPIContainers,
+		domain:                                    domain,
+		logRetentionPeriod:                        logRetentionPeriod,
 	}
 }
 
@@ -212,6 +233,9 @@ func (guarantor *engineExistenceGuarantor) VisitStopped() error {
 			guarantor.allowedCORSOrigins,
 			guarantor.shouldRunInDebugMode,
 			githubAuthToken,
+			guarantor.restartAPIContainers,
+			guarantor.domain,
+			guarantor.logRetentionPeriod,
 		)
 	} else {
 		_, _, engineLaunchErr = guarantor.engineServerLauncher.LaunchWithCustomVersion(
@@ -231,6 +255,9 @@ func (guarantor *engineExistenceGuarantor) VisitStopped() error {
 			guarantor.allowedCORSOrigins,
 			guarantor.shouldRunInDebugMode,
 			githubAuthToken,
+			guarantor.restartAPIContainers,
+			guarantor.domain,
+			guarantor.logRetentionPeriod,
 		)
 	}
 	if engineLaunchErr != nil {

@@ -907,82 +907,92 @@ export class UpdateAddressArgs extends Message<UpdateAddressArgs> {
 }
 
 /**
- * @generated from message kurtosis_cloud.DeleteInstanceRequest
+ * @generated from message kurtosis_cloud.DeleteInstancesRequest
  */
-export class DeleteInstanceRequest extends Message<DeleteInstanceRequest> {
+export class DeleteInstancesRequest extends Message<DeleteInstancesRequest> {
   /**
-   * @generated from field: string instance_id = 1;
+   * @generated from field: repeated string instance_ids = 1;
    */
-  instanceId = "";
+  instanceIds: string[] = [];
 
   /**
-   * @generated from field: string ec2_id = 2;
+   * must be system user to delete instances
+   *
+   * @generated from field: string api_key = 2;
    */
-  ec2Id = "";
+  apiKey = "";
 
-  constructor(data?: PartialMessage<DeleteInstanceRequest>) {
+  /**
+   * can optionally pass a status to only delete instances with a certain status, eg. configuring
+   *
+   * @generated from field: optional string status = 3;
+   */
+  status?: string;
+
+  constructor(data?: PartialMessage<DeleteInstancesRequest>) {
     super();
     proto3.util.initPartial(data, this);
   }
 
   static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "kurtosis_cloud.DeleteInstanceRequest";
+  static readonly typeName = "kurtosis_cloud.DeleteInstancesRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "instance_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "ec2_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 1, name: "instance_ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 2, name: "api_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "status", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteInstanceRequest {
-    return new DeleteInstanceRequest().fromBinary(bytes, options);
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteInstancesRequest {
+    return new DeleteInstancesRequest().fromBinary(bytes, options);
   }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteInstanceRequest {
-    return new DeleteInstanceRequest().fromJson(jsonValue, options);
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteInstancesRequest {
+    return new DeleteInstancesRequest().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteInstanceRequest {
-    return new DeleteInstanceRequest().fromJsonString(jsonString, options);
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteInstancesRequest {
+    return new DeleteInstancesRequest().fromJsonString(jsonString, options);
   }
 
-  static equals(a: DeleteInstanceRequest | PlainMessage<DeleteInstanceRequest> | undefined, b: DeleteInstanceRequest | PlainMessage<DeleteInstanceRequest> | undefined): boolean {
-    return proto3.util.equals(DeleteInstanceRequest, a, b);
+  static equals(a: DeleteInstancesRequest | PlainMessage<DeleteInstancesRequest> | undefined, b: DeleteInstancesRequest | PlainMessage<DeleteInstancesRequest> | undefined): boolean {
+    return proto3.util.equals(DeleteInstancesRequest, a, b);
   }
 }
 
 /**
- * @generated from message kurtosis_cloud.DeleteInstanceResponse
+ * @generated from message kurtosis_cloud.DeleteInstancesResponse
  */
-export class DeleteInstanceResponse extends Message<DeleteInstanceResponse> {
+export class DeleteInstancesResponse extends Message<DeleteInstancesResponse> {
   /**
-   * @generated from field: string status = 1;
+   * @generated from field: repeated string deleted_instances = 1;
    */
-  status = "";
+  deletedInstances: string[] = [];
 
-  constructor(data?: PartialMessage<DeleteInstanceResponse>) {
+  constructor(data?: PartialMessage<DeleteInstancesResponse>) {
     super();
     proto3.util.initPartial(data, this);
   }
 
   static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "kurtosis_cloud.DeleteInstanceResponse";
+  static readonly typeName = "kurtosis_cloud.DeleteInstancesResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "status", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 1, name: "deleted_instances", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteInstanceResponse {
-    return new DeleteInstanceResponse().fromBinary(bytes, options);
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteInstancesResponse {
+    return new DeleteInstancesResponse().fromBinary(bytes, options);
   }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteInstanceResponse {
-    return new DeleteInstanceResponse().fromJson(jsonValue, options);
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteInstancesResponse {
+    return new DeleteInstancesResponse().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteInstanceResponse {
-    return new DeleteInstanceResponse().fromJsonString(jsonString, options);
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteInstancesResponse {
+    return new DeleteInstancesResponse().fromJsonString(jsonString, options);
   }
 
-  static equals(a: DeleteInstanceResponse | PlainMessage<DeleteInstanceResponse> | undefined, b: DeleteInstanceResponse | PlainMessage<DeleteInstanceResponse> | undefined): boolean {
-    return proto3.util.equals(DeleteInstanceResponse, a, b);
+  static equals(a: DeleteInstancesResponse | PlainMessage<DeleteInstancesResponse> | undefined, b: DeleteInstancesResponse | PlainMessage<DeleteInstancesResponse> | undefined): boolean {
+    return proto3.util.equals(DeleteInstancesResponse, a, b);
   }
 }
 
@@ -1943,6 +1953,290 @@ export class AddAliasRequest extends Message<AddAliasRequest> {
 
   static equals(a: AddAliasRequest | PlainMessage<AddAliasRequest> | undefined, b: AddAliasRequest | PlainMessage<AddAliasRequest> | undefined): boolean {
     return proto3.util.equals(AddAliasRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message kurtosis_cloud.DeleteAliasRequest
+ */
+export class DeleteAliasRequest extends Message<DeleteAliasRequest> {
+  /**
+   * @generated from field: string access_token = 1;
+   */
+  accessToken = "";
+
+  /**
+   * @generated from field: string alias = 2;
+   */
+  alias = "";
+
+  constructor(data?: PartialMessage<DeleteAliasRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "kurtosis_cloud.DeleteAliasRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "access_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "alias", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteAliasRequest {
+    return new DeleteAliasRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteAliasRequest {
+    return new DeleteAliasRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteAliasRequest {
+    return new DeleteAliasRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DeleteAliasRequest | PlainMessage<DeleteAliasRequest> | undefined, b: DeleteAliasRequest | PlainMessage<DeleteAliasRequest> | undefined): boolean {
+    return proto3.util.equals(DeleteAliasRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message kurtosis_cloud.IsNewKurtosisVersionAvailableRequest
+ */
+export class IsNewKurtosisVersionAvailableRequest extends Message<IsNewKurtosisVersionAvailableRequest> {
+  /**
+   * @generated from field: string access_token = 1;
+   */
+  accessToken = "";
+
+  /**
+   * @generated from field: string current_kurtosis_version = 2;
+   */
+  currentKurtosisVersion = "";
+
+  constructor(data?: PartialMessage<IsNewKurtosisVersionAvailableRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "kurtosis_cloud.IsNewKurtosisVersionAvailableRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "access_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "current_kurtosis_version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): IsNewKurtosisVersionAvailableRequest {
+    return new IsNewKurtosisVersionAvailableRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): IsNewKurtosisVersionAvailableRequest {
+    return new IsNewKurtosisVersionAvailableRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): IsNewKurtosisVersionAvailableRequest {
+    return new IsNewKurtosisVersionAvailableRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: IsNewKurtosisVersionAvailableRequest | PlainMessage<IsNewKurtosisVersionAvailableRequest> | undefined, b: IsNewKurtosisVersionAvailableRequest | PlainMessage<IsNewKurtosisVersionAvailableRequest> | undefined): boolean {
+    return proto3.util.equals(IsNewKurtosisVersionAvailableRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message kurtosis_cloud.IsNewKurtosisVersionAvailableResponse
+ */
+export class IsNewKurtosisVersionAvailableResponse extends Message<IsNewKurtosisVersionAvailableResponse> {
+  /**
+   * @generated from field: bool isAvailable = 1;
+   */
+  isAvailable = false;
+
+  /**
+   * @generated from field: string latestVersion = 2;
+   */
+  latestVersion = "";
+
+  constructor(data?: PartialMessage<IsNewKurtosisVersionAvailableResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "kurtosis_cloud.IsNewKurtosisVersionAvailableResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "isAvailable", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "latestVersion", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): IsNewKurtosisVersionAvailableResponse {
+    return new IsNewKurtosisVersionAvailableResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): IsNewKurtosisVersionAvailableResponse {
+    return new IsNewKurtosisVersionAvailableResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): IsNewKurtosisVersionAvailableResponse {
+    return new IsNewKurtosisVersionAvailableResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: IsNewKurtosisVersionAvailableResponse | PlainMessage<IsNewKurtosisVersionAvailableResponse> | undefined, b: IsNewKurtosisVersionAvailableResponse | PlainMessage<IsNewKurtosisVersionAvailableResponse> | undefined): boolean {
+    return proto3.util.equals(IsNewKurtosisVersionAvailableResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message kurtosis_cloud.UpgradeKurtosisVersionRequest
+ */
+export class UpgradeKurtosisVersionRequest extends Message<UpgradeKurtosisVersionRequest> {
+  /**
+   * @generated from field: string access_token = 1;
+   */
+  accessToken = "";
+
+  constructor(data?: PartialMessage<UpgradeKurtosisVersionRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "kurtosis_cloud.UpgradeKurtosisVersionRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "access_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpgradeKurtosisVersionRequest {
+    return new UpgradeKurtosisVersionRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UpgradeKurtosisVersionRequest {
+    return new UpgradeKurtosisVersionRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UpgradeKurtosisVersionRequest {
+    return new UpgradeKurtosisVersionRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UpgradeKurtosisVersionRequest | PlainMessage<UpgradeKurtosisVersionRequest> | undefined, b: UpgradeKurtosisVersionRequest | PlainMessage<UpgradeKurtosisVersionRequest> | undefined): boolean {
+    return proto3.util.equals(UpgradeKurtosisVersionRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message kurtosis_cloud.GetInstanceMetricsRequest
+ */
+export class GetInstanceMetricsRequest extends Message<GetInstanceMetricsRequest> {
+  /**
+   * @generated from field: string access_token = 1;
+   */
+  accessToken = "";
+
+  /**
+   * @generated from field: string instance_id = 2;
+   */
+  instanceId = "";
+
+  /**
+   * @generated from field: int32 interval = 3;
+   */
+  interval = 0;
+
+  /**
+   * @generated from field: int32 utc_offset = 4;
+   */
+  utcOffset = 0;
+
+  /**
+   * @generated from field: kurtosis_cloud.GetInstanceMetricsRequest.Theme theme = 5;
+   */
+  theme = GetInstanceMetricsRequest_Theme.LIGHT;
+
+  constructor(data?: PartialMessage<GetInstanceMetricsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "kurtosis_cloud.GetInstanceMetricsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "access_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "instance_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "interval", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "utc_offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 5, name: "theme", kind: "enum", T: proto3.getEnumType(GetInstanceMetricsRequest_Theme) },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetInstanceMetricsRequest {
+    return new GetInstanceMetricsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetInstanceMetricsRequest {
+    return new GetInstanceMetricsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetInstanceMetricsRequest {
+    return new GetInstanceMetricsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetInstanceMetricsRequest | PlainMessage<GetInstanceMetricsRequest> | undefined, b: GetInstanceMetricsRequest | PlainMessage<GetInstanceMetricsRequest> | undefined): boolean {
+    return proto3.util.equals(GetInstanceMetricsRequest, a, b);
+  }
+}
+
+/**
+ * @generated from enum kurtosis_cloud.GetInstanceMetricsRequest.Theme
+ */
+export enum GetInstanceMetricsRequest_Theme {
+  /**
+   * @generated from enum value: LIGHT = 0;
+   */
+  LIGHT = 0,
+
+  /**
+   * @generated from enum value: DARK = 1;
+   */
+  DARK = 1,
+}
+// Retrieve enum metadata with: proto3.getEnumType(GetInstanceMetricsRequest_Theme)
+proto3.util.setEnumType(GetInstanceMetricsRequest_Theme, "kurtosis_cloud.GetInstanceMetricsRequest.Theme", [
+  { no: 0, name: "LIGHT" },
+  { no: 1, name: "DARK" },
+]);
+
+/**
+ * @generated from message kurtosis_cloud.GetInstanceMetricsResponse
+ */
+export class GetInstanceMetricsResponse extends Message<GetInstanceMetricsResponse> {
+  /**
+   * @generated from field: string metrics = 1;
+   */
+  metrics = "";
+
+  constructor(data?: PartialMessage<GetInstanceMetricsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "kurtosis_cloud.GetInstanceMetricsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "metrics", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetInstanceMetricsResponse {
+    return new GetInstanceMetricsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetInstanceMetricsResponse {
+    return new GetInstanceMetricsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetInstanceMetricsResponse {
+    return new GetInstanceMetricsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetInstanceMetricsResponse | PlainMessage<GetInstanceMetricsResponse> | undefined, b: GetInstanceMetricsResponse | PlainMessage<GetInstanceMetricsResponse> | undefined): boolean {
+    return proto3.util.equals(GetInstanceMetricsResponse, a, b);
   }
 }
 

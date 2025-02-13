@@ -297,13 +297,14 @@ func (backend *DockerKurtosisBackend) GetUserServiceLogs(
 func (backend *DockerKurtosisBackend) RunUserServiceExecCommands(
 	ctx context.Context,
 	enclaveUuid enclave.EnclaveUUID,
+	containerUser string,
 	userServiceCommands map[service.ServiceUUID][]string,
 ) (
 	map[service.ServiceUUID]*exec_result.ExecResult,
 	map[service.ServiceUUID]error,
 	error,
 ) {
-	return user_service_functions.RunUserServiceExecCommands(ctx, enclaveUuid, userServiceCommands, backend.dockerManager)
+	return user_service_functions.RunUserServiceExecCommands(ctx, enclaveUuid, containerUser, userServiceCommands, backend.dockerManager)
 }
 
 func (backend *DockerKurtosisBackend) RunUserServiceExecCommandWithStreamedOutput(
@@ -614,6 +615,25 @@ func (backend *DockerKurtosisBackend) getGitHubAuthStorageVolume(ctx context.Con
 	}
 	if len(foundVolumes) == 0 {
 		return "", stacktrace.NewError("No GitHub auth storage volume found.")
+	}
+	volume := foundVolumes[0]
+	return volume.Name, nil
+}
+
+// Guaranteed to either return a Docker config storage volume name or throw an error
+func (backend *DockerKurtosisBackend) getDockerConfigStorageVolume(ctx context.Context) (string, error) {
+	volumeSearchLabels := map[string]string{
+		docker_label_key.VolumeTypeDockerLabelKey.GetString(): label_value_consts.DockerConfigStorageVolumeTypeDockerLabelValue.GetString(),
+	}
+	foundVolumes, err := backend.dockerManager.GetVolumesByLabels(ctx, volumeSearchLabels)
+	if err != nil {
+		return "", stacktrace.Propagate(err, "An error occurred getting Docker config storage volumes matching labels '%+v'", volumeSearchLabels)
+	}
+	if len(foundVolumes) > 1 {
+		return "", stacktrace.NewError("Found multiple Docker config storage volumes. This should never happen")
+	}
+	if len(foundVolumes) == 0 {
+		return "", stacktrace.NewError("No Docker config storage volume found.")
 	}
 	volume := foundVolumes[0]
 	return volume.Name, nil

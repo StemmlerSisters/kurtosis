@@ -45,7 +45,11 @@ func (launcher *EngineServerLauncher) LaunchWithDefaultVersion(
 	cloudInstanceID metrics_client.CloudInstanceID,
 	allowedCORSOrigins *[]string,
 	shouldStartInDebugMode bool,
-	githubAuthToken string) (
+	githubAuthToken string,
+	restartAPIContainers bool,
+	domain string,
+	logRetentionPeriod string,
+) (
 	resultPublicIpAddr net.IP,
 	resultPublicGrpcPortSpec *port_spec.PortSpec,
 	resultErr error,
@@ -66,7 +70,10 @@ func (launcher *EngineServerLauncher) LaunchWithDefaultVersion(
 		cloudInstanceID,
 		allowedCORSOrigins,
 		shouldStartInDebugMode,
-		githubAuthToken)
+		githubAuthToken,
+		restartAPIContainers,
+		domain,
+		logRetentionPeriod)
 	if err != nil {
 		return nil, nil, stacktrace.Propagate(err, "An error occurred launching the engine server container with default version tag '%v'", kurtosis_version.KurtosisVersion)
 	}
@@ -89,7 +96,11 @@ func (launcher *EngineServerLauncher) LaunchWithCustomVersion(
 	cloudInstanceID metrics_client.CloudInstanceID,
 	allowedCORSOrigins *[]string,
 	shouldStartInDebugMode bool,
-	githubAuthToken string) (
+	githubAuthToken string,
+	restartAPIContainers bool,
+	domain string,
+	logRetentionPeriod string,
+) (
 	resultPublicIpAddr net.IP,
 	resultPublicGrpcPortSpec *port_spec.PortSpec,
 	resultErr error,
@@ -111,6 +122,9 @@ func (launcher *EngineServerLauncher) LaunchWithCustomVersion(
 		cloudUserID,
 		cloudInstanceID,
 		allowedCORSOrigins,
+		restartAPIContainers,
+		domain,
+		logRetentionPeriod,
 	)
 	if err != nil {
 		return nil, nil, stacktrace.Propagate(err, "An error occurred creating the engine server args")
@@ -131,7 +145,7 @@ func (launcher *EngineServerLauncher) LaunchWithCustomVersion(
 		githubAuthToken,
 	)
 	if err != nil {
-		return nil, nil, stacktrace.Propagate(err, "An error occurred launching the engine server container with environment variables '%+v'", envVars)
+		return nil, nil, stacktrace.Propagate(err, "An error occurred launching the engine server container")
 	}
 	return engine.GetPublicIPAddress(), engine.GetPublicGRPCPort(), nil
 }

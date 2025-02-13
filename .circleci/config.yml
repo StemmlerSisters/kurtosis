@@ -145,7 +145,7 @@ version: 2.1
 
 orbs:
   npm-publisher: uraway/npm-publisher@0.2.0
-  kurtosis-docs-checker: kurtosis-tech/docs-checker@0.2.7
+  kurtosis-docs-checker: kurtosis-tech/docs-checker@0.2.9
   slack: circleci/slack@4.10.1
 
 executors:
@@ -173,7 +173,7 @@ parameters:
   # the same version as the server
   rust-version:
     type: string
-    default: 1.70.0
+    default: 1.81.0
   api-node-version:
     type: string
     default: 16.13.0
@@ -537,13 +537,9 @@ jobs:
       # Generate Kurtosis Version
       - run: "<<pipeline.parameters.generate-kurtosis-version-script-path>>"
 
-      # Install goreleaser
       # we need to update the apt key, otherwise imports fails due to unrecognized key
       - run: |
-          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | tee /etc/apt/sources.list.d/goreleaser.list
           curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
-          apt update
-          apt install -y goreleaser
 
       # Cache our dependencies
       - restore_cache:
@@ -769,9 +765,9 @@ jobs:
               false
             fi
       - run:
-          name: "Verify Kurtosis cleaned up all its volumes (except for the log storage and github auth storage volumes)"
+          name: "Verify Kurtosis cleaned up all its volumes (except for the log storage, github auth storage, docker auth config volumes)"
           command: |
-            if ! [ $(docker volume ls | grep -v kurtosis-logs-collector-vol | grep -v kurtosis-logs-db-vol | tail -n+2 | wc -l ) -eq 2 ]; then
+            if ! [ $(docker volume ls | grep -v kurtosis-logs-collector-vol | grep -v kurtosis-logs-db-vol | tail -n+2 | wc -l ) -eq 3 ]; then
               docker volume ls
               false
             fi
@@ -820,6 +816,9 @@ jobs:
       - run:
           command: yarn cypress:ete
           working_directory: enclave-manager/web
+
+      - store_artifacts:
+          path: /home/circleci/project/enclave-manager/web/cypress/screenshots
 
   test_basic_cli_functionality:
     executor: ubuntu_vm
@@ -1005,9 +1004,9 @@ jobs:
                     false
                   fi
             - run:
-                name: "Verify Kurtosis cleaned up all its volumes (except for the log storage and github auth storage volumes)"
+                name: "Verify Kurtosis cleaned up all its volumes (except for the log storage, github auth storage, docker auth config volumes)"
                 command: |
-                  if ! [ $(docker volume ls | grep -v kurtosis-logs-collector-vol | grep -v kurtosis-logs-db-vol | tail -n+2 | wc -l) -eq 2 ]; then
+                  if ! [ $(docker volume ls | grep -v kurtosis-logs-collector-vol | grep -v kurtosis-logs-db-vol | tail -n+2 | wc -l) -eq 3 ]; then
                     docker volume ls
                     false
                   fi
@@ -1474,17 +1473,6 @@ workflows:
       - build_cli:
           all_architectures: true
           name: "Check if CLI builds for all os and arch pairs"
-          <<: *filters_ignore_main
-
-      - test_enclave_manager_web_ui:
-          name: "Test Basic Web UI Functionality in Docker"
-          context:
-            - docker-user
-          requires:
-            - build_cli
-            - build_api_container_server
-            - build_engine_server
-            - build_files_artifacts_expander
           <<: *filters_ignore_main
 
       - test_basic_cli_functionality:

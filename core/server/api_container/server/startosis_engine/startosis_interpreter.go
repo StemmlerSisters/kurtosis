@@ -20,6 +20,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/startosis_engine/startosis_constants"
 	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/startosis_engine/startosis_errors"
 	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/startosis_engine/startosis_packages"
+	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/startosis_engine/startosis_packages/git_package_content_provider"
 	"github.com/sirupsen/logrus"
 	"go.starlark.net/resolve"
 	"go.starlark.net/starlark"
@@ -62,11 +63,22 @@ type StartosisInterpreter struct {
 	starlarkValueSerde           *kurtosis_types.StarlarkValueSerde
 	enclaveEnvVars               string
 	interpretationTimeValueStore *interpretation_time_value_store.InterpretationTimeValueStore
+	// This is a function that allows the consumer of the interpreter to adjust the default builtins.
+	// It is useful when external libraries or helpers need to be plugged in to kurtosis,
+	// for example when running unit tests using the starlarktest package
+	processBuiltins StartosisInterpreterBuiltinsProcessor
 }
+
+// StartosisInterpreterBuiltinsProcessor is a builtins transformer function
+type StartosisInterpreterBuiltinsProcessor func(thread *starlark.Thread, predeclared starlark.StringDict) starlark.StringDict
 
 type SerializedInterpretationOutput string
 
 func NewStartosisInterpreter(serviceNetwork service_network.ServiceNetwork, packageContentProvider startosis_packages.PackageContentProvider, runtimeValueStore *runtime_value_store.RuntimeValueStore, starlarkValueSerde *kurtosis_types.StarlarkValueSerde, enclaveVarEnvs string, interpretationTimeValueStore *interpretation_time_value_store.InterpretationTimeValueStore) *StartosisInterpreter {
+	return NewStartosisInterpreterWithBuiltinsProcessor(serviceNetwork, packageContentProvider, runtimeValueStore, starlarkValueSerde, enclaveVarEnvs, interpretationTimeValueStore, nil)
+}
+
+func NewStartosisInterpreterWithBuiltinsProcessor(serviceNetwork service_network.ServiceNetwork, packageContentProvider startosis_packages.PackageContentProvider, runtimeValueStore *runtime_value_store.RuntimeValueStore, starlarkValueSerde *kurtosis_types.StarlarkValueSerde, enclaveVarEnvs string, interpretationTimeValueStore *interpretation_time_value_store.InterpretationTimeValueStore, processBuiltins StartosisInterpreterBuiltinsProcessor) *StartosisInterpreter {
 	return &StartosisInterpreter{
 		mutex:                        &sync.Mutex{},
 		serviceNetwork:               serviceNetwork,
@@ -75,6 +87,7 @@ func NewStartosisInterpreter(serviceNetwork service_network.ServiceNetwork, pack
 		enclaveEnvVars:               enclaveVarEnvs,
 		starlarkValueSerde:           starlarkValueSerde,
 		interpretationTimeValueStore: interpretationTimeValueStore,
+		processBuiltins:              processBuiltins,
 	}
 }
 
@@ -357,7 +370,12 @@ func (interpreter *StartosisInterpreter) buildBindings(
 	moduleGlobalCache map[string]*startosis_packages.ModuleCacheEntry,
 	packageReplaceOptions map[string]string,
 ) (*starlark.StringDict, *startosis_errors.InterpretationError) {
+	packagePrefix := getModulePrefix(packageId)
 	recursiveInterpretForModuleLoading := func(moduleId string, serializedStartosis string) (starlark.StringDict, *startosis_errors.InterpretationError) {
+		modulePrefix := getModulePrefix(moduleId)
+		if modulePrefix != packagePrefix {
+			instructionPlan.AddPackageDependency(modulePrefix)
+		}
 		result, err := interpreter.interpretInternal(packageId, moduleId, serializedStartosis, instructionPlan, moduleGlobalCache, packageReplaceOptions)
 		if err != nil {
 			return nil, err
@@ -383,7 +401,26 @@ func (interpreter *StartosisInterpreter) buildBindings(
 	for _, kurtosisTypeConstructors := range KurtosisTypeConstructors() {
 		predeclared[kurtosisTypeConstructors.Name()] = kurtosisTypeConstructors
 	}
+
+	// Allow the consumers to adjust the builtins
+	//
+	// This is useful for adding e.g. starlarktest package
+	// for unit testing of kurtosis scripts
+	if interpreter.processBuiltins != nil {
+		predeclared = interpreter.processBuiltins(thread, predeclared)
+	}
+
 	return &predeclared, nil
+}
+
+const (
+	numModIdSeparators = 3
+)
+
+// gets the prefix of a module id
+// eg. "github.com/kurtosis-tech/postgres-package/main.star" returns "github.com/kurtosis-tech/postgres-package"
+func getModulePrefix(moduleId string) string {
+	return strings.Join(strings.SplitN(moduleId, git_package_content_provider.OsPathSeparatorString, numModIdSeparators+1)[:numModIdSeparators], git_package_content_provider.OsPathSeparatorString)
 }
 
 func findFirstEqualInstructionPastIndex(currentEnclaveInstructionsList []*enclave_plan_persistence.EnclavePlanInstruction, naiveInstructionsList []*instructions_plan.ScheduledInstruction, minIndex int) int {

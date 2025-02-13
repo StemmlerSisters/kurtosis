@@ -117,6 +117,27 @@ config = ServiceConfig(
             wait = "4s"
         ),
     },
+    
+    # The deterministic public ports that Kurtosis will expose from the container to the machine
+    # This only applies to Docker; the port ids here must be a subset of `ports`
+    # If no ports are provided; normal ports behavior will happen and the exposed ports will be randomly allocated
+    # This doesn't work on Kubernetes!!!
+    # OPTIONAL (Default: {})
+    public_ports = {
+        "grpc": PortSpec(
+            # The port number which we want to expose
+            # MANDATORY
+            number = 3000,
+
+            # Transport protocol for the port (can be either "TCP" or "UDP")
+            # Optional (DEFAULT:"TCP")
+            transport_protocol = "TCP",
+
+            # Application protocol for the port
+            # Optional
+            application_protocol = "http"
+        )
+    },
 
     # A mapping of path_on_container_where_contents_will_be_mounted -> Directory object or file artifact name
     # For more info on what a Directory object is, see below
@@ -229,7 +250,12 @@ config = ServiceConfig(
     # OPTIONAL
     node_selectors = {
         "disktype": "ssd",
-    }
+    },
+    
+    # The tini_enabled field allows you to set the `--init` options when a container is started in Docker.
+    # OPTIONAL
+    # Default (true)
+    tini_enabled = True
 )
 ```
 Note that `ImageBuildSpec` can only be used in packages and not standalone scripts as it relies on build context in package. More info on [`ImageBuildSpec`](./image-build-spec.md) here.
@@ -243,6 +269,15 @@ Using a `Directory` object with `artifact_name` is strictly equivalent to direct
 See [`NixBuildSpec`][nix-build-spec] for more information on how to use the Nix and Kurtosis together.
 
 You can view more information on [configuring the `ReadyCondition` type here][ready-condition].
+
+:::note
+If you are experiencing issues with unsuccessful port check, try exposing the port on all network interfaces via `0.0.0.0` eg `--rpc.laddr tcp://0.0.0.0:36657`). See [here][port-ip-doc] for an in depth explanation.
+```bash
+  == FINISHED SERVICE 'service-a' LOGS ===================================
+  Caused by: An error occurred while waiting for all TCP and UDP ports to be open
+  Caused by: Unsuccessful ports check for IP '172.16.0.10' and port spec '{privatePortSpec:0x400071d0b0}', even after '240' retries with '500' milliseconds in between retries. Timeout '2m0s' has been reached
+```
+:::
 
 :::tip
 If you are trying to use a more complex versions of `cmd` and are running into issues, we recommend using `cmd` in combination with `entrypoint`. You can
@@ -294,3 +329,4 @@ The `tolerations` field expects a list of [`Toleration`][toleration] objects bei
 [user]: ./user.md
 [toleration]: ./toleration.md
 [nix-build-spec]: ./nix-build-spec.md
+[port-ip-doc]: ../../advanced-concepts/public-and-private-ips-and-ports.md#gotchas

@@ -117,6 +117,9 @@ func validateSingleService(validatorEnvironment *startosis_validator.ValidatorEn
 
 	var portIds []string
 	for portId := range serviceConfig.GetPrivatePorts() {
+		if isValidPortName := service.IsPortNameValid(portId); !isValidPortName {
+			return startosis_errors.NewValidationError(invalidPortNameErrorText(portId))
+		}
 		portIds = append(portIds, portId)
 	}
 	validatorEnvironment.AddPrivatePortIDForService(portIds, serviceName)
@@ -131,7 +134,17 @@ func invalidServiceNameErrorText(
 	return fmt.Sprintf(
 		"Service name '%v' is invalid as it contains disallowed characters. Service names must adhere to the RFC 1035 standard, specifically implementing this regex and be 1-63 characters long: %s. This means the service name must only contain lowercase alphanumeric characters or '-', and must start with a lowercase alphabet and end with a lowercase alphanumeric character.",
 		serviceName,
-		service.WordWrappedServiceNameRegex,
+		service.ServiceNameRegex,
+	)
+}
+
+func invalidPortNameErrorText(
+	portName string,
+) string {
+	return fmt.Sprintf(
+		"Port name '%v' is invalid as it contains disallowed characters. Port names must adhere to the RFC 6335 standard, specifically implementing this regex and be 1-15 characters long: %s. This means the port name must only contain lowercase alphanumeric characters or '-', and must start with a lowercase alphabet and end with a lowercase alphanumeric character.",
+		portName,
+		service.PortNameRegex,
 	)
 }
 
@@ -196,29 +209,7 @@ func replaceMagicStrings(
 		}
 	}
 
-	renderedServiceConfig, err := service.CreateServiceConfig(
-		serviceConfig.GetContainerImageName(),
-		serviceConfig.GetImageBuildSpec(),
-		serviceConfig.GetImageRegistrySpec(),
-		serviceConfig.GetNixBuildSpec(),
-		serviceConfig.GetPrivatePorts(),
-		serviceConfig.GetPublicPorts(),
-		entrypoints,
-		cmdArgs,
-		envVars,
-		serviceConfig.GetFilesArtifactsExpansion(),
-		serviceConfig.GetPersistentDirectories(),
-		serviceConfig.GetCPUAllocationMillicpus(),
-		serviceConfig.GetMemoryAllocationMegabytes(),
-		serviceConfig.GetPrivateIPAddrPlaceholder(),
-		serviceConfig.GetMinCPUAllocationMillicpus(),
-		serviceConfig.GetMinMemoryAllocationMegabytes(),
-		serviceConfig.GetLabels(),
-		serviceConfig.GetUser(),
-		serviceConfig.GetTolerations(),
-		serviceConfig.GetNodeSelectors(),
-		serviceConfig.GetImageDownloadMode(),
-	)
+	renderedServiceConfig, err := service.CreateServiceConfig(serviceConfig.GetContainerImageName(), serviceConfig.GetImageBuildSpec(), serviceConfig.GetImageRegistrySpec(), serviceConfig.GetNixBuildSpec(), serviceConfig.GetPrivatePorts(), serviceConfig.GetPublicPorts(), entrypoints, cmdArgs, envVars, serviceConfig.GetFilesArtifactsExpansion(), serviceConfig.GetPersistentDirectories(), serviceConfig.GetCPUAllocationMillicpus(), serviceConfig.GetMemoryAllocationMegabytes(), serviceConfig.GetPrivateIPAddrPlaceholder(), serviceConfig.GetMinCPUAllocationMillicpus(), serviceConfig.GetMinMemoryAllocationMegabytes(), serviceConfig.GetLabels(), serviceConfig.GetUser(), serviceConfig.GetTolerations(), serviceConfig.GetNodeSelectors(), serviceConfig.GetImageDownloadMode(), serviceConfig.GetTiniEnabled())
 
 	if err != nil {
 		return "", nil, stacktrace.Propagate(err, "An error occurred creating a service config")

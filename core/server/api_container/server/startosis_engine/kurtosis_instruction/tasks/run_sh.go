@@ -24,7 +24,6 @@ import (
 	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/startosis_engine/startosis_packages"
 	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/startosis_engine/startosis_validator"
 	"github.com/kurtosis-tech/stacktrace"
-	"github.com/xtgo/uuid"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -49,6 +48,11 @@ func NewRunShService(
 			Name: RunShBuiltinName,
 
 			Arguments: []*builtin_argument.BuiltinArgument{
+				{
+					Name:              TaskNameArgName,
+					IsOptional:        true,
+					ZeroValueProvider: builtin_argument.ZeroValueProvider[starlark.String],
+				},
 				{
 					Name:              RunArgName,
 					IsOptional:        false,
@@ -141,6 +145,12 @@ type RunShCapabilities struct {
 }
 
 func (builtin *RunShCapabilities) Interpret(locatorOfModuleInWhichThisBuiltinIsBeingCalled string, arguments *builtin_argument.ArgumentValuesSet) (starlark.Value, *startosis_errors.InterpretationError) {
+	taskName, err := getTaskNameFromArgs(arguments)
+	if err != nil {
+		return nil, startosis_errors.WrapWithInterpretationError(err, "Unable to get task name from args.")
+	}
+	builtin.name = taskName
+
 	runCommand, err := builtin_argument.ExtractArgumentValue[starlark.String](arguments, RunArgName)
 	if err != nil {
 		return nil, startosis_errors.WrapWithInterpretationError(err, "Unable to extract value for '%s' argument", RunArgName)
@@ -225,8 +235,6 @@ func (builtin *RunShCapabilities) Interpret(locatorOfModuleInWhichThisBuiltinIsB
 		return nil, startosis_errors.NewInterpretationError("An error occurred while generating UUID for future reference for %v instruction", RunShBuiltinName)
 	}
 	builtin.resultUuid = resultUuid
-	randomUuid := uuid.NewRandom()
-	builtin.name = fmt.Sprintf("task-%v", randomUuid.String())
 
 	defaultDescription := runningShScriptPrefix
 	if len(builtin.run) < shScriptPrintCharLimit {
@@ -253,7 +261,7 @@ func (builtin *RunShCapabilities) Validate(_ *builtin_argument.ArgumentValuesSet
 //	Make task as its own entity instead of currently shown under services
 func (builtin *RunShCapabilities) Execute(ctx context.Context, _ *builtin_argument.ArgumentValuesSet) (string, error) {
 	// swap env vars with their runtime value
-	serviceConfigWithReplacedEnvVars, err := repacaeMagicStringsInEnvVars(builtin.runtimeValueStore, builtin.serviceConfig)
+	serviceConfigWithReplacedEnvVars, err := replaceMagicStringsInEnvVars(builtin.runtimeValueStore, builtin.serviceConfig)
 	if err != nil {
 		return "", stacktrace.Propagate(err, "An error occurred replacing magic strings in env vars.")
 	}
@@ -268,7 +276,7 @@ func (builtin *RunShCapabilities) Execute(ctx context.Context, _ *builtin_argume
 	if err != nil {
 		return "", stacktrace.Propagate(err, "error occurred while preparing the sh command to execute on the image")
 	}
-	fullCommandToRun := []string{shellWrapperCommand, "-c", commandToRun}
+	fullCommandToRun := getCommandToRunForStreamingLogs(commandToRun)
 
 	// run the command passed in by user in the container
 	createDefaultDirectoryResult, err := executeWithWait(ctx, builtin.serviceNetwork, builtin.name, builtin.wait, fullCommandToRun)
@@ -321,8 +329,8 @@ func (builtin *RunShCapabilities) FillPersistableAttributes(builder *enclave_pla
 	builder.SetType(RunShBuiltinName)
 }
 
-func (builtin *RunShCapabilities) UpdatePlan(plan *plan_yaml.PlanYaml) error {
-	err := plan.AddRunSh(builtin.run, builtin.returnValue, builtin.serviceConfig, builtin.storeSpecList)
+func (builtin *RunShCapabilities) UpdatePlan(plan *plan_yaml.PlanYamlGenerator) error {
+	err := plan.AddRunSh(builtin.run, builtin.description, builtin.returnValue, builtin.serviceConfig, builtin.storeSpecList)
 	if err != nil {
 		return stacktrace.Propagate(err, "An error occurred adding run sh task to the plan")
 	}
@@ -343,7 +351,7 @@ func getCommandToRun(builtin *RunShCapabilities) (string, error) {
 	return maybeSubCommandWithRuntimeValues, nil
 }
 
-func repacaeMagicStringsInEnvVars(runtimeValueStore *runtime_value_store.RuntimeValueStore, serviceConfig *service.ServiceConfig) (
+func replaceMagicStringsInEnvVars(runtimeValueStore *runtime_value_store.RuntimeValueStore, serviceConfig *service.ServiceConfig) (
 	*service.ServiceConfig,
 	error) {
 	var envVars map[string]string
@@ -358,29 +366,7 @@ func repacaeMagicStringsInEnvVars(runtimeValueStore *runtime_value_store.Runtime
 		}
 	}
 
-	renderedServiceConfig, err := service.CreateServiceConfig(
-		serviceConfig.GetContainerImageName(),
-		serviceConfig.GetImageBuildSpec(),
-		serviceConfig.GetImageRegistrySpec(),
-		serviceConfig.GetNixBuildSpec(),
-		serviceConfig.GetPrivatePorts(),
-		serviceConfig.GetPublicPorts(),
-		serviceConfig.GetEntrypointArgs(),
-		serviceConfig.GetCmdArgs(),
-		envVars,
-		serviceConfig.GetFilesArtifactsExpansion(),
-		serviceConfig.GetPersistentDirectories(),
-		serviceConfig.GetCPUAllocationMillicpus(),
-		serviceConfig.GetMemoryAllocationMegabytes(),
-		serviceConfig.GetPrivateIPAddrPlaceholder(),
-		serviceConfig.GetMinCPUAllocationMillicpus(),
-		serviceConfig.GetMinMemoryAllocationMegabytes(),
-		serviceConfig.GetLabels(),
-		serviceConfig.GetUser(),
-		serviceConfig.GetTolerations(),
-		serviceConfig.GetNodeSelectors(),
-		serviceConfig.GetImageDownloadMode(),
-	)
+	renderedServiceConfig, err := service.CreateServiceConfig(serviceConfig.GetContainerImageName(), serviceConfig.GetImageBuildSpec(), serviceConfig.GetImageRegistrySpec(), serviceConfig.GetNixBuildSpec(), serviceConfig.GetPrivatePorts(), serviceConfig.GetPublicPorts(), serviceConfig.GetEntrypointArgs(), serviceConfig.GetCmdArgs(), envVars, serviceConfig.GetFilesArtifactsExpansion(), serviceConfig.GetPersistentDirectories(), serviceConfig.GetCPUAllocationMillicpus(), serviceConfig.GetMemoryAllocationMegabytes(), serviceConfig.GetPrivateIPAddrPlaceholder(), serviceConfig.GetMinCPUAllocationMillicpus(), serviceConfig.GetMinMemoryAllocationMegabytes(), serviceConfig.GetLabels(), serviceConfig.GetUser(), serviceConfig.GetTolerations(), serviceConfig.GetNodeSelectors(), serviceConfig.GetImageDownloadMode(), tiniEnabled)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred creating a service config with env var magric strings replaced.")
 	}

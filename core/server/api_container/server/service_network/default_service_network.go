@@ -10,12 +10,6 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/exec_result"
-	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/database_accessors/enclave_db"
-	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/database_accessors/enclave_db/service_registration"
-	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/service_network/render_templates"
-	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/service_network/service_identifiers"
-	"github.com/kurtosis-tech/kurtosis/path-compression"
 	"io"
 	"net"
 	"net/http"
@@ -24,6 +18,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/exec_result"
+	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/database_accessors/enclave_db"
+	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/database_accessors/enclave_db/service_registration"
+	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/service_network/render_templates"
+	"github.com/kurtosis-tech/kurtosis/core/server/api_container/server/service_network/service_identifiers"
+	"github.com/kurtosis-tech/kurtosis/path-compression"
 
 	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface"
 	"github.com/kurtosis-tech/kurtosis/container-engine-lib/lib/backend_interface/objects/enclave"
@@ -577,7 +578,7 @@ func (network *DefaultServiceNetwork) RunExec(ctx context.Context, serviceIdenti
 	}
 
 	successfulExecCommands, failedExecCommands, err := network.kurtosisBackend.RunUserServiceExecCommands(
-		ctx, network.enclaveUuid, userServiceCommands)
+		ctx, network.enclaveUuid, "", userServiceCommands)
 	if err != nil {
 		return nil, stacktrace.Propagate(
 			err,
@@ -620,7 +621,7 @@ func (network *DefaultServiceNetwork) RunExecs(ctx context.Context, userServiceC
 		userServiceCommandsByServiceUuid[serviceUuid] = userServiceCommand
 	}
 
-	successfulExecs, failedExecs, err := network.kurtosisBackend.RunUserServiceExecCommands(ctx, network.enclaveUuid, userServiceCommandsByServiceUuid)
+	successfulExecs, failedExecs, err := network.kurtosisBackend.RunUserServiceExecCommands(ctx, network.enclaveUuid, "", userServiceCommandsByServiceUuid)
 	if err != nil {
 		return nil, nil, stacktrace.Propagate(err, "An unexpected error occurred running multiple exec commands "+
 			"on user services:\n%v", userServiceCommands)
@@ -628,7 +629,7 @@ func (network *DefaultServiceNetwork) RunExecs(ctx context.Context, userServiceC
 	return successfulExecs, failedExecs, nil
 }
 
-func (network *DefaultServiceNetwork) HttpRequestService(ctx context.Context, serviceIdentifier string, portId string, method string, contentType string, endpoint string, body string) (*http.Response, error) {
+func (network *DefaultServiceNetwork) HttpRequestService(ctx context.Context, serviceIdentifier string, portId string, method string, contentType string, endpoint string, body string, headers map[string]string) (*http.Response, error) {
 	logrus.Debugf("Making a request '%v' '%v' '%v' '%v' '%v' '%v'", serviceIdentifier, portId, method, contentType, endpoint, body)
 	userService, getServiceErr := network.GetService(ctx, serviceIdentifier)
 	if getServiceErr != nil {
@@ -642,6 +643,9 @@ func (network *DefaultServiceNetwork) HttpRequestService(ctx context.Context, se
 	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(body))
 	if err != nil {
 		return nil, stacktrace.NewError("An error occurred building HTTP request on service '%v', URL '%v'", userService, url)
+	}
+	for header, headerValue := range headers {
+		req.Header.Set(header, headerValue)
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
